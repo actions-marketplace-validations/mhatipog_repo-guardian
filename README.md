@@ -47,6 +47,10 @@ repo-guardian private-copy octocat/Hello-World --name hello-test-private-copy
 
 For GitHub Actions, use `mhatipog/repo-guardian@<reviewed SHA>` with inputs `token` (an Actions secret) and `request` (strict JSON). See [CLI and reusable GitHub Action](docs/cli-and-action.md). This also makes the project discoverable as a GitHub Action without requiring a ChatGPT-specific plugin.
 
+### Deployment verification
+
+Verify the private runner, a status check and a low-risk topics update before wider use.
+
 ## Two-repository setup
 
 ```
