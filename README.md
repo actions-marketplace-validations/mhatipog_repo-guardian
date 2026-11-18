@@ -55,7 +55,7 @@ For GitHub Actions, use `mhatipog/repo-guardian@<reviewed SHA>` with inputs `tok
 
 ### Deployment verification
 
-Verify the private runner, a status check and a low-risk topics update before wider use.
+The public engine has unit tests and GitHub Action smoke tests. For a new private-controller installation, confirm that a runner can start, check the controller's `status` response, and verify a low-risk topics update before granting broader permissions. Runner availability and token permissions vary between installations.
 
 ## Two-repository setup
 

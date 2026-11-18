@@ -2,6 +2,7 @@
 
 Repo Guardian's private issue controller can relay an MP3 that the standard ChatGPT GitHub connector cannot upload as a binary. It **never places the audio in Git commits or branches** and only accepts `mhatipog/web-operations` + `gratistools`.
 
+The source is a private `RG:` issue plus owner-authored `RG_MEDIA_CHUNK` comments. On the private controller runner, chunks are reconstructed, SHA-256 checked, uploaded to the private GitHub `social-audio-inputs` release and the chunk comments are deleted. The controller reports `RG_DONE` with the `audioTrack` fields for the existing `social/calendar/*.json` format.
 
 ## Request schema
 
@@ -30,6 +31,7 @@ Once the owner-controlled upload has succeeded, the controller posts a small `RG
 - No public GitHub release or content is created by the relay. The actual promotional post goes through the existing GratisTools social pipeline only.
 - No media is sent to any third-party service beyond GitHub and the social networks.
 - GitHub may retain deleted issue content in backups or audit systems. We can remove active comments/assets but cannot guarantee irreversible deletion from GitHub's infrastructure.
+- The relay is an exceptional mechanism for when a binary-capable connector is unavailable. **The existing `stage.mjs` script is still simpler** for uploads made directly from a trusted runner or your own computer.
 - Only the owner should authorize uploading and publishing media they have rights to use commercially.
 
 ## Publishing after staging

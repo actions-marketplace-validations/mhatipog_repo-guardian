@@ -4,7 +4,11 @@ Repo Guardian is open-source software, not an officially registered ChatGPT app.
 
 ## Installation layout
 
-Keep the engine public and the request controller private. Store `RG_ADMIN_TOKEN` only as a private Actions secret; pin the controller to a reviewed engine commit.
+- Public engine: [Repo Guardian](https://github.com/mhatipog/repo-guardian)
+- Private controller: create `<owner>/repo-guardian-control` and keep it private
+- Private Actions secret: store `RG_ADMIN_TOKEN` in that private repository, never in source code or chat
+- Runner: verify the private controller workflow can start on a runner available to that repository
+- Engine revision: pin the private workflow to a reviewed commit SHA
 
 ### Automation-first commands
 
