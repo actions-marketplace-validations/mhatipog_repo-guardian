@@ -15,7 +15,7 @@ def validate(value, owner):
     allowed = {"version", "action", "fork", "upstream", "pr_number",
                "expected_head_sha", "reply_to_comment_id", "expected_comment_author",
                "expected_comment_sha256", "body", "acknowledge_public_exposure"}
-    if set(value) - allowed or value.get("version") != 1 or value.get("action") != "comment_pr":
+    if set(value) - allowed or value.get("version") != 1 or value.get("action") not in ("comment_pr", "reply_pr_review"):
         raise CommentRefused("Invalid PR comment request")
     try:
         source, target = repo(value.get("fork")), repo(value.get("upstream"))
@@ -77,6 +77,9 @@ def submit(value, admin, owner):
             or pr.get("html_url") != "https://github.com/" + target + "/pull/" + str(number)):
         raise CommentRefused("PR author, state, fork, or reviewed head changed")
 
+    if value["action"] == "reply_pr_review":
+        return submit_review_reply(value, admin, owner, base_path, number)
+
     comment_id = value["reply_to_comment_id"]
     prior = admin("GET", base_path + "/issues/comments/" + str(comment_id))
     if (prior.get("id") != comment_id
@@ -114,3 +117,45 @@ def submit(value, admin, owner):
         raise CommentRefused("Reply posted but post-write verification failed")
     # Keep public links out of the controller's bot status comments.
     return "Verified owner-authored public reply on pull request " + str(number) + " (comment " + str(created_id) + ")"
+
+
+def submit_review_reply(value, admin, owner, base_path, number):
+    """Post one verified reply to an existing maintainer's inline review comment."""
+    comment_id = value["reply_to_comment_id"]
+    pull_url = "https://api.github.com" + base_path + "/pulls/" + str(number)
+    prior = admin("GET", base_path + "/pulls/comments/" + str(comment_id))
+    if (prior.get("id") != comment_id
+            or prior.get("pull_request_url") != pull_url
+            or prior.get("in_reply_to_id") is not None
+            or prior.get("user", {}).get("login", "").lower() != value["expected_comment_author"].lower()
+            or hashlib.sha256((prior.get("body") or "").encode()).hexdigest()
+            != value["expected_comment_sha256"]):
+        raise CommentRefused("Review comment changed or does not belong to this PR")
+
+    for page in range(1, 11):
+        existing = admin("GET", base_path + "/pulls/" + str(number) +
+                         "/comments?per_page=100&page=" + str(page))
+        if not isinstance(existing, list):
+            raise CommentRefused("Could not verify existing review replies")
+        for item in existing:
+            if (item.get("user", {}).get("login", "").lower() == owner.lower()
+                    and item.get("in_reply_to_id") == comment_id
+                    and item.get("body") == value["body"]):
+                return "Verified existing inline reply on pull request " + str(number)
+        if len(existing) < 100:
+            break
+    else:
+        raise CommentRefused("Review comment enumeration exceeded 1000 entries")
+
+    created = admin("POST", base_path + "/pulls/" + str(number) +
+                    "/comments/" + str(comment_id) + "/replies", {"body": value["body"]})
+    created_id = created.get("id")
+    if type(created_id) is not int or created_id < 1:
+        raise CommentRefused("Reply POST returned no comment ID; inspect before retry")
+    verified = admin("GET", base_path + "/pulls/comments/" + str(created_id))
+    if (verified.get("id") != created_id or verified.get("body") != value["body"]
+            or verified.get("user", {}).get("login", "").lower() != owner.lower()
+            or verified.get("in_reply_to_id") != comment_id
+            or verified.get("pull_request_url") != pull_url):
+        raise CommentRefused("Inline reply posted but verification failed")
+    return "Verified owner-authored inline reply on pull request " + str(number) + " (comment " + str(created_id) + ")"

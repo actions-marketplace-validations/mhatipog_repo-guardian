@@ -97,6 +97,9 @@ def parse_intent(body):
         "comment_pr": {"version", "action", "fork", "upstream", "pr_number",
                        "expected_head_sha", "reply_to_comment_id", "expected_comment_author",
                        "expected_comment_sha256", "body", "acknowledge_public_exposure"},
+        "reply_pr_review": {"version", "action", "fork", "upstream", "pr_number",
+                            "expected_head_sha", "reply_to_comment_id", "expected_comment_author",
+                            "expected_comment_sha256", "body", "acknowledge_public_exposure"},
         "report_vulnerability": {"version", "action", "upstream", "summary", "description",
                                  "severity", "cwe_ids", "vulnerabilities",
                                  "acknowledge_private_submission"},
@@ -175,7 +178,7 @@ def parse_intent(body):
             validate_issue(value, OWNER)
         except IssueRefused as e:
             raise Refused(str(e)) from None
-    elif action == "comment_pr":
+    elif action in ("comment_pr", "reply_pr_review"):
         try:
             validate_comment(value, OWNER)
         except CommentRefused as e:
@@ -423,7 +426,7 @@ class Control:
             except IssueRefused as e:
                 raise Refused(str(e)) from None
 
-        if action == "comment_pr":
+        if action in ("comment_pr", "reply_pr_review"):
             try:
                 return submit_comment(value, self.admin, OWNER)
             except CommentRefused as e:

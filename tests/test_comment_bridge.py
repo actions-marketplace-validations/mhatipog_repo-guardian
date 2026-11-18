@@ -129,5 +129,64 @@ class CommentBridgeTests(unittest.TestCase):
         self.assertEqual(1, sum(c[0] == "POST" for c in calls))
 
 
+    def test_inline_review_reply_is_pinned_and_verified(self):
+        from repoguardian.comment_bridge import submit
+        original = "The sampling periods should always be positive."
+        review = {
+            **VALUE, "action": "reply_pr_review", "reply_to_comment_id": 4614430524,
+            "expected_comment_author": "russbiggs",
+            "expected_comment_sha256": hashlib.sha256(original.encode()).hexdigest(),
+        }
+        pull_url = "https://api.github.com" + PREFIX + "/pulls/5936"
+        calls = []
+
+        def admin(method, path, data=None):
+            calls.append((method, path, data))
+            if path == PREFIX + "/pulls/comments/4614430524":
+                return {"id": 4614430524, "pull_request_url": pull_url,
+                        "user": {"login": "russbiggs"}, "body": original}
+            if path == PREFIX + "/pulls/5936/comments?per_page=100&page=1":
+                return []
+            if method == "POST" and path == PREFIX + "/pulls/5936/comments/4614430524/replies":
+                assert data == {"body": BODY}
+                return {"id": 713}
+            if path == PREFIX + "/pulls/comments/713":
+                return {"id": 713, "body": BODY, "in_reply_to_id": 4614430524,
+                        "pull_request_url": pull_url, "user": {"login": OWNER}}
+            return fake_api(method, path, data)
+
+        self.assertEqual(parse_intent(json.dumps(review)), review)
+        self.assertIn("Verified owner-authored inline reply", submit(review, admin, OWNER))
+        self.assertEqual(1, sum(c[0] == "POST" for c in calls))
+
+        calls.clear()
+        def duplicate_admin(method, path, data=None):
+            if path == PREFIX + "/pulls/5936/comments?per_page=100&page=1":
+                return [{"user": {"login": OWNER}, "body": BODY, "in_reply_to_id": 4614430524}]
+            return admin(method, path, data)
+
+        self.assertIn("existing inline reply", submit(review, duplicate_admin, OWNER))
+        self.assertFalse(any(c[0] == "POST" for c in calls))
+
+    def test_inline_reply_rejects_wrong_comment(self):
+        original = "The sampling periods should always be positive."
+        review = {
+            **VALUE, "action": "reply_pr_review", "reply_to_comment_id": 4614430524,
+            "expected_comment_author": "russbiggs",
+            "expected_comment_sha256": hashlib.sha256(original.encode()).hexdigest(),
+        }
+        calls = []
+        def admin(method, path, data=None):
+            calls.append((method, path, data))
+            if path == PREFIX + "/pulls/comments/4614430524":
+                return {"id": 4614430524,
+                        "pull_request_url": "https://api.github.com/repos/other/repo/pulls/5936",
+                        "user": {"login": "russbiggs"}, "body": original}
+            return fake_api(method, path, data)
+
+        with self.assertRaises(CommentRefused):
+            submit(review, admin, OWNER)
+        self.assertFalse(any(c[0] == "POST" for c in calls))
+
 if __name__ == "__main__":
     unittest.main()
